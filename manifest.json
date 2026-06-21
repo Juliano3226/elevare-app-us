@@ -1,0 +1,22 @@
+{
+  "name": "Elevare Consulting",
+  "short_name": "Elevare",
+  "description": "Smart management for your business to grow",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1b2a",
+  "theme_color": "#0d1b2a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://elevare-app-us.vercel.app/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://elevare-app-us.vercel.app/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
