@@ -761,7 +761,7 @@ function showLogin() {
   document.getElementById('selectedPlanBadge').style.display = 'none';
   document.getElementById('registerFields').style.display = 'none';
   document.getElementById('authBtn').textContent = 'Sign In →';
-  document.getElementById('authToggle').innerHTML = 'Don't have an account? <span onclick="toggleAuthMode()">Create account</span>';
+  document.getElementById('authToggle').innerHTML = "Don't have an account? <span onclick='toggleAuthMode()'>Create account</span>";
   document.getElementById('authTerms').style.display = 'none';
 }
 
@@ -779,7 +779,7 @@ function toggleAuthMode() {
     document.getElementById('selectedPlanBadge').style.display = 'none';
     document.getElementById('registerFields').style.display = 'none';
     document.getElementById('authBtn').textContent = 'Sign In →';
-    document.getElementById('authToggle').innerHTML = 'Don't have an account? <span onclick="toggleAuthMode()">Create account</span>';
+    document.getElementById('authToggle').innerHTML = "Don't have an account? <span onclick='toggleAuthMode()'>Create account</span>";
     document.getElementById('authTerms').style.display = 'none';
   } else {
     authMode = 'register';
