@@ -564,6 +564,11 @@ setTimeout(function() {
       startApp();
     } else {
       document.getElementById('onboarding').classList.add('show');
+      const pendingPlan = localStorage.getItem('elevare_pending_plan');
+      if (pendingPlan) {
+        localStorage.removeItem('elevare_pending_plan');
+        showSignupAfterPayment(pendingPlan);
+      }
     }
   }, 400);
 }, 2400);
@@ -625,23 +630,28 @@ function backToPlans() {
 
 function selectPlan(plan) {
   selectedPlan = plan;
-  authMode = 'register';
+  localStorage.setItem('elevare_pending_plan', plan);
   const stripeBasic = 'https://buy.stripe.com/dRm28kblzdojgls3br28803';
   const stripePro = 'https://buy.stripe.com/4gMfZa75jesnb189zP28804';
   const link = (plan === 'pro') ? stripePro : stripeBasic;
-  window.open(link, '_blank');
+  window.location.href = link;
+}
 
+function showSignupAfterPayment(plan) {
+  selectedPlan = plan;
+  authMode = 'register';
   document.getElementById('selectedPlanBadge').textContent = (plan === 'pro') ? 'Pro Plan - $49/month' : 'Basic Plan - $29/month';
   document.getElementById('selectedPlanBadge').style.display = 'flex';
   document.getElementById('registerFields').style.display = 'block';
-  document.getElementById('authBtn').textContent = 'I have paid - Create my account \u2192';
+  document.getElementById('authBtn').textContent = 'Create my account \u2192';
+  document.getElementById('ob-welcome').classList.remove('active');
   document.getElementById('ob-plans').classList.remove('active');
   document.getElementById('ob-auth').classList.add('active');
   document.getElementById('ob-auth').scrollTop = 0;
   document.getElementById('authBackBtn').onclick = backToPlans;
   document.getElementById('authStepLabel').textContent = 'Create account';
-  document.getElementById('authTitle').textContent = 'Finish signing up';
-  document.getElementById('authSub').textContent = 'After payment, create your account to access the platform.';
+  document.getElementById('authTitle').textContent = 'Payment confirmed!';
+  document.getElementById('authSub').textContent = 'Now create your account to access the platform.';
 }
 
 function openSupport() {
