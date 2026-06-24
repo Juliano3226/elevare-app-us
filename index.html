@@ -209,6 +209,24 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
 .loading-spinner{width:44px;height:44px;border:3px solid rgba(201,168,76,.2);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:13px;color:var(--gray);}
+
+.billing-blocked{position:fixed;inset:0;background:var(--navy);z-index:250;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px calc(32px + env(safe-area-inset-bottom));text-align:center;}
+.billing-blocked.show{display:flex;}
+.billing-blocked .bb-icon{font-size:48px;margin-bottom:20px;}
+.billing-blocked .bb-title{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;margin-bottom:10px;}
+.billing-blocked .bb-sub{font-size:14px;color:var(--gray);line-height:1.6;margin-bottom:32px;max-width:340px;}
+.billing-blocked .bb-error{color:#e74c3c;font-size:13px;margin-top:-12px;margin-bottom:20px;display:none;}
+
+.btn-install{width:100%;background:transparent;border:1.5px solid var(--gold);border-radius:14px;padding:14px;color:var(--gold);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;transition:background .2s;}
+.btn-install:active{background:rgba(201,168,76,.1);}
+.header-install-btn{width:34px;height:34px;border-radius:50%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);display:none;align-items:center;justify-content:center;font-size:16px;cursor:pointer;margin-right:8px;}
+.empresa-install-row{width:100%;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:14px;padding:14px 16px;display:none;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;cursor:pointer;}
+.empresa-install-row .ei-text{text-align:left;}
+.empresa-install-row .ei-title{font-size:13px;font-weight:600;color:var(--gold);}
+.empresa-install-row .ei-sub{font-size:11px;color:var(--gray);margin-top:2px;}
+.install-steps{text-align:left;margin:16px 0;padding:0;list-style:none;}
+.install-steps li{display:flex;align-items:flex-start;gap:12px;font-size:13px;color:var(--white);line-height:1.5;margin-bottom:14px;}
+.install-steps .step-num{background:var(--gold);color:var(--navy);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -227,6 +245,17 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
   <div class="loading-text" id="loadingText">Please wait...</div>
 </div>
 
+<div class="billing-blocked" id="billingBlocked">
+  <div class="bb-icon">&#128274;</div>
+  <div class="bb-title" id="bbTitle">Payment pending</div>
+  <div class="bb-sub" id="bbSub">Your last payment couldn&#39;t be processed. Update your payment method to keep using Elevare.</div>
+  <div class="bb-error" id="bbError"></div>
+  <div style="width:100%;max-width:320px;">
+    <button class="btn-primary" onclick="openBillingPortal()" id="bbUpdateBtn">Update payment &rarr;</button>
+    <button class="btn-secondary-outline" onclick="handleLogout()">Sign out</button>
+  </div>
+</div>
+
 <div id="onboarding">
 
   <div class="ob-screen ob-welcome active" id="ob-welcome">
@@ -242,6 +271,7 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
     <div style="margin-top:40px;width:100%;max-width:360px;">
       <button class="btn-primary" onclick="goToPlans()">Get Started &rarr;</button>
       <button onclick="showLogin()" class="btn-secondary-outline">I already have an account &mdash; Sign In</button>
+      <button onclick="handleInstallClick()" class="btn-install" id="welcomeInstallBtn" style="display:none;">&#128241; Install App on this device</button>
     </div>
   </div>
 
@@ -362,7 +392,10 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
         <div class="header-sub">Consulting</div>
       </div>
     </div>
-    <div class="header-user" id="userInitials">--</div>
+    <div style="display:flex;align-items:center;">
+      <button class="header-install-btn" id="headerInstallBtn" onclick="handleInstallClick()" title="Install App">&#11015;</button>
+      <div class="header-user" id="userInitials">--</div>
+    </div>
   </div>
 
   <div class="content">
@@ -478,6 +511,14 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
         </div>
       </div>
 
+      <div class="empresa-install-row" id="empresaInstallRow" onclick="handleInstallClick()">
+        <div class="ei-text">
+          <div class="ei-title">&#128241; Install Elevare on this device</div>
+          <div class="ei-sub">Quick access from your home screen</div>
+        </div>
+        <div style="color:var(--gold);font-size:18px;">&rarr;</div>
+      </div>
+
       <button class="btn-logout" onclick="handleLogout()">Sign Out</button>
     </div>
   </div>
@@ -529,6 +570,14 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
   </div>
 </div>
 
+<div class="modal-overlay" id="installModal">
+  <div class="modal">
+    <div class="modal-title" id="installModalTitle">Install Elevare</div>
+    <ol class="install-steps" id="installModalSteps"></ol>
+    <button class="btn-cancel" onclick="document.getElementById('installModal').classList.remove('show')">Got it</button>
+  </div>
+</div>
+
 <script>
 const SUPA_URL = 'https://znkbnkxpgrlhpqduvxar.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpua2Jua3hwZ3JsaHBxZHV2eGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MzAyNjIsImV4cCI6MjA5NTQwNjI2Mn0.8ROvXqNrwUnU8yqaHyBpPpy8s6EdIyeh4S0W2vPxZHk';
@@ -542,6 +591,90 @@ let authMode = 'register';
 let chatHistory = [];
 let currentTxType = 'income';
 
+// ---------- PWA Install ----------
+let deferredInstallPrompt = null;
+
+function isStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function isIOSDevice() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+function isAndroidDevice() {
+  return /android/i.test(navigator.userAgent);
+}
+
+function refreshInstallUI() {
+  const show = !isStandaloneMode();
+  const ids = ['welcomeInstallBtn', 'headerInstallBtn', 'empresaInstallRow'];
+  ids.forEach(function(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (id === 'headerInstallBtn') {
+      el.style.display = show ? 'flex' : 'none';
+    } else if (id === 'empresaInstallRow') {
+      el.style.display = show ? 'flex' : 'none';
+    } else {
+      el.style.display = show ? 'block' : 'none';
+    }
+  });
+}
+
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  refreshInstallUI();
+});
+
+window.addEventListener('appinstalled', function() {
+  deferredInstallPrompt = null;
+  refreshInstallUI();
+});
+
+async function handleInstallClick() {
+  if (deferredInstallPrompt) {
+    try {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+    } catch (e) { /* ignore */ }
+    deferredInstallPrompt = null;
+    refreshInstallUI();
+    return;
+  }
+  if (isIOSDevice()) {
+    showInstallInstructions('ios');
+  } else {
+    showInstallInstructions('generic');
+  }
+}
+
+function showInstallInstructions(kind) {
+  const titleEl = document.getElementById('installModalTitle');
+  const stepsEl = document.getElementById('installModalSteps');
+  if (kind === 'ios') {
+    titleEl.textContent = 'Install on iPhone / iPad';
+    stepsEl.innerHTML =
+      '<li><span class="step-num">1</span>Tap the <strong>Share</strong> icon in Safari\u2019s toolbar.</li>' +
+      '<li><span class="step-num">2</span>Scroll down and tap <strong>Add to Home Screen</strong>.</li>' +
+      '<li><span class="step-num">3</span>Tap <strong>Add</strong> in the top right corner.</li>';
+  } else {
+    titleEl.textContent = 'Install Elevare';
+    stepsEl.innerHTML =
+      '<li><span class="step-num">1</span>Open your browser menu (usually <strong>\u22ee</strong> or <strong>\u2630</strong>).</li>' +
+      '<li><span class="step-num">2</span>Look for <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>' +
+      '<li><span class="step-num">3</span>Confirm to add Elevare to your home screen.</li>';
+  }
+  document.getElementById('installModal').classList.add('show');
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').catch(function() { /* non-critical */ });
+  });
+}
+refreshInstallUI();
+// ---------- /PWA Install ----------
+
 function showLoading(txt) {
   document.getElementById('loadingText').textContent = txt || 'Please wait...';
   document.getElementById('loadingOverlay').classList.add('show');
@@ -550,28 +683,111 @@ function hideLoading() {
   document.getElementById('loadingOverlay').classList.remove('show');
 }
 
+let verifiedPaymentSession = null; // { session_id, email, plan } — only set after server-side verification
+
 setTimeout(function() {
   document.getElementById('splash').classList.add('hide');
   setTimeout(async function() {
     showLoading('Checking session...');
+
+    // 1) Coming back from Stripe Checkout? Verify the payment server-side
+    //    BEFORE showing anything. Nothing here is trusted from the URL alone.
+    const params = new URLSearchParams(window.location.search);
+    const paidSession = params.get('paid_session');
+    if (paidSession) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      try {
+        const verifyRes = await fetch('/api/verify-payment?session_id=' + encodeURIComponent(paidSession));
+        const verifyData = await verifyRes.json();
+        if (verifyData.paid) {
+          verifiedPaymentSession = { session_id: paidSession, email: verifyData.email, plan: verifyData.plan };
+        }
+      } catch (e) { /* network hiccup — user can still sign in manually */ }
+    }
+
+    // 2) Restore existing session if any.
     const sessionResult = await supa.auth.getSession();
     const session = sessionResult.data.session;
     hideLoading();
+
     if (session) {
       currentUser = session.user;
       await loadProfile();
       await loadTransactions();
-      startApp();
+      enforceAccess();
     } else {
       document.getElementById('onboarding').classList.add('show');
-      const pendingPlan = localStorage.getItem('elevare_pending_plan');
-      if (pendingPlan) {
-        localStorage.removeItem('elevare_pending_plan');
-        showSignupAfterPayment(pendingPlan);
+      if (verifiedPaymentSession) {
+        showSignupAfterPayment(verifiedPaymentSession);
       }
     }
   }, 400);
 }, 2400);
+
+// Gate every entry point (session restore AND fresh login) on the
+// server-confirmed subscription_status. Nothing reaches startApp()
+// unless the database says the subscription is active.
+function enforceAccess() {
+  const status = userProfile && userProfile.subscription_status;
+  if (status === 'active') {
+    document.getElementById('onboarding').style.display = 'none';
+    document.getElementById('billingBlocked').classList.remove('show');
+    startApp();
+  } else if (status === 'past_due' || status === 'canceled' || status === 'unpaid' || status === 'incomplete_expired') {
+    showBillingBlocked(status);
+  } else {
+    // No subscription_status at all (shouldn't happen with the new signup
+    // flow, but fail closed rather than open).
+    showBillingBlocked('inactive');
+  }
+}
+
+function showBillingBlocked(status) {
+  document.getElementById('onboarding').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('app').classList.remove('show');
+  const titleEl = document.getElementById('bbTitle');
+  const subEl = document.getElementById('bbSub');
+  if (status === 'canceled') {
+    titleEl.textContent = 'Subscription canceled';
+    subEl.textContent = 'Your subscription is no longer active. Resubscribe to regain access to Elevare.';
+  } else if (status === 'past_due') {
+    titleEl.textContent = 'Payment past due';
+    subEl.textContent = 'We could not process your last payment. Update your payment method to keep using Elevare.';
+  } else {
+    titleEl.textContent = 'No active subscription';
+    subEl.textContent = 'We could not find an active subscription for this account. Please contact support or subscribe again.';
+  }
+  document.getElementById('billingBlocked').classList.add('show');
+}
+
+async function openBillingPortal() {
+  const errEl = document.getElementById('bbError');
+  errEl.style.display = 'none';
+  const btn = document.getElementById('bbUpdateBtn');
+  btn.disabled = true;
+  btn.textContent = 'Opening...';
+  try {
+    const sessionResult = await supa.auth.getSession();
+    const token = sessionResult.data.session?.access_token;
+    const res = await fetch('/api/create-portal-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    });
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      errEl.textContent = data.error || 'Could not open billing portal.';
+      errEl.style.display = 'block';
+    }
+  } catch (e) {
+    errEl.textContent = 'Connection error. Please try again.';
+    errEl.style.display = 'block';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Update payment \u2192';
+}
 
 function showLogin() {
   authMode = 'login';
@@ -603,6 +819,8 @@ function applyAuthModeUI() {
     document.getElementById('authBtn').textContent = 'Sign In \u2192';
     document.getElementById('authToggle').innerHTML = "Don&#39;t have an account? <span onclick=\"toggleAuthMode()\">Create account</span>";
     document.getElementById('authTerms').style.display = 'none';
+    document.getElementById('authEmail').readOnly = false;
+    document.getElementById('authEmail').value = '';
   } else {
     document.getElementById('authStepLabel').textContent = 'Create account';
     document.getElementById('authTitle').textContent = 'Almost there!';
@@ -628,19 +846,41 @@ function backToPlans() {
   document.getElementById('ob-plans').classList.add('active');
 }
 
-function selectPlan(plan) {
-  selectedPlan = plan;
-  localStorage.setItem('elevare_pending_plan', plan);
-  const stripeBasic = 'https://buy.stripe.com/dRm28kblzdojgls3br28803';
-  const stripePro = 'https://buy.stripe.com/4gMfZa75jesnb189zP28804';
-  const link = (plan === 'pro') ? stripePro : stripeBasic;
-  window.location.href = link;
+// Creates a real, dynamic Stripe Checkout Session server-side and redirects
+// to it. No static Payment Links, no localStorage flags — the only thing
+// that can mark a "pending plan" is Stripe itself, via the session it creates.
+async function selectPlan(plan) {
+  const buttons = document.querySelectorAll('.btn-plan-basic, .btn-plan-pro');
+  buttons.forEach(function(b) { b.disabled = true; });
+  showLoading('Redirecting to secure checkout...');
+  try {
+    const res = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan: plan }),
+    });
+    const data = await res.json();
+    hideLoading();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert(data.error || 'Could not start checkout. Please try again.');
+      buttons.forEach(function(b) { b.disabled = false; });
+    }
+  } catch (e) {
+    hideLoading();
+    alert('Connection error. Please try again.');
+    buttons.forEach(function(b) { b.disabled = false; });
+  }
 }
 
-function showSignupAfterPayment(plan) {
-  selectedPlan = plan;
+// Called only after /api/verify-payment has confirmed payment_status === 'paid'.
+// The email is locked (read-only) because it must match the verified Stripe
+// record exactly — complete-signup re-derives it server-side regardless.
+function showSignupAfterPayment(verified) {
+  selectedPlan = verified.plan;
   authMode = 'register';
-  document.getElementById('selectedPlanBadge').textContent = (plan === 'pro') ? 'Pro Plan - $49/month' : 'Basic Plan - $29/month';
+  document.getElementById('selectedPlanBadge').textContent = (verified.plan === 'pro') ? 'Pro Plan - $49/month' : 'Basic Plan - $29/month';
   document.getElementById('selectedPlanBadge').style.display = 'flex';
   document.getElementById('registerFields').style.display = 'block';
   document.getElementById('authBtn').textContent = 'Create my account \u2192';
@@ -648,10 +888,12 @@ function showSignupAfterPayment(plan) {
   document.getElementById('ob-plans').classList.remove('active');
   document.getElementById('ob-auth').classList.add('active');
   document.getElementById('ob-auth').scrollTop = 0;
-  document.getElementById('authBackBtn').onclick = backToPlans;
+  document.getElementById('authBackBtn').style.display = 'none';
   document.getElementById('authStepLabel').textContent = 'Create account';
   document.getElementById('authTitle').textContent = 'Payment confirmed!';
   document.getElementById('authSub').textContent = 'Now create your account to access the platform.';
+  document.getElementById('authEmail').value = verified.email;
+  document.getElementById('authEmail').readOnly = true;
 }
 
 function openSupport() {
@@ -659,6 +901,7 @@ function openSupport() {
   const msg = encodeURIComponent('Hello! I am a Pro Plan customer of Elevare Consulting and need support.');
   window.open('https://wa.me/' + num + '?text=' + msg, '_blank');
 }
+
 
 function startApp() {
   document.getElementById('app').style.display = '';
@@ -898,38 +1141,65 @@ function showErr(msg) {
 }
 
 async function handleAuth() {
-  const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
   document.getElementById('authError').style.display = 'none';
 
-  if (!email || !password) { showErr('Please fill in email and password.'); return; }
+  if (!password) { showErr('Please fill in your password.'); return; }
   if (password.length < 6) { showErr('Password must be at least 6 characters.'); return; }
 
   const btn = document.getElementById('authBtn');
   btn.disabled = true;
 
   if (authMode === 'register') {
+    if (!verifiedPaymentSession) {
+      showErr('We could not verify your payment. Please subscribe again from the plans page.');
+      btn.disabled = false;
+      return;
+    }
     const nome = document.getElementById('regNome').value.trim();
     const empresa = document.getElementById('regBusiness').value.trim();
     const setor = document.getElementById('regIndustry').value;
     if (!nome || !empresa) { showErr('Please fill in name and company.'); btn.disabled = false; return; }
 
     showLoading('Creating your account...');
-    const result = await supa.auth.signUp({
-      email: email, password: password,
-      options: { data: { nome: nome, empresa: empresa, setor: setor, plano: selectedPlan } }
-    });
-    hideLoading();
+    let signupData;
+    try {
+      const res = await fetch('/api/complete-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: verifiedPaymentSession.session_id,
+          password: password, nome: nome, empresa: empresa, setor: setor,
+        }),
+      });
+      signupData = await res.json();
+      if (!res.ok) {
+        hideLoading();
+        showErr(signupData.error || 'Could not create your account.');
+        btn.disabled = false;
+        return;
+      }
+    } catch (e) {
+      hideLoading();
+      showErr('Connection error. Please try again.');
+      btn.disabled = false;
+      return;
+    }
 
-    if (result.error) { showErr(translateError(result.error.message)); btn.disabled = false; return; }
-    currentUser = result.data.user;
-    await new Promise(function(r) { setTimeout(r, 1000); });
+    // Account + profile (with subscription_status='active') now exist server-side.
+    // Sign in normally to get a real Supabase session.
+    const signInResult = await supa.auth.signInWithPassword({ email: signupData.email, password: password });
+    hideLoading();
+    if (signInResult.error) { showErr(translateError(signInResult.error.message)); btn.disabled = false; return; }
+    currentUser = signInResult.data.user;
+    verifiedPaymentSession = null;
     await loadProfile();
     await loadTransactions();
-    document.getElementById('onboarding').style.display = 'none';
-    startApp();
+    enforceAccess();
 
   } else {
+    const email = document.getElementById('authEmail').value.trim();
+    if (!email) { showErr('Please fill in email and password.'); btn.disabled = false; return; }
     showLoading('Signing in...');
     const result = await supa.auth.signInWithPassword({ email: email, password: password });
     hideLoading();
@@ -938,11 +1208,11 @@ async function handleAuth() {
     currentUser = result.data.user;
     await loadProfile();
     await loadTransactions();
-    document.getElementById('onboarding').style.display = 'none';
-    startApp();
+    enforceAccess();
   }
   btn.disabled = false;
 }
+
 
 async function handleLogout() {
   if (!confirm('Are you sure you want to sign out?')) return;
@@ -954,18 +1224,7 @@ async function handleLogout() {
   document.getElementById('app').style.display = 'none';
   location.reload();
 }
-
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', function(e) {
-  e.preventDefault();
-  deferredPrompt = e;
-  setTimeout(function() {
-    const b = document.createElement('div');
-    b.style.cssText = 'position:fixed;top:80px;left:16px;right:16px;background:linear-gradient(135deg,#1a2a40,#0d1b2a);border:1px solid rgba(201,168,76,.4);border-radius:16px;padding:16px;z-index:150;display:flex;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.4)';
-    b.innerHTML = '<span style="font-size:24px">&#128241;</span><div style="flex:1"><div style="font-size:13px;font-weight:600;margin-bottom:2px">Install Elevare</div><div style="font-size:11px;color:#8a9ab0">Add to your home screen</div></div><button onclick="if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null;}this.parentElement.remove()" style="background:linear-gradient(135deg,#c9a84c,#e8c97a);border:none;border-radius:10px;padding:8px 14px;color:#0d1b2a;font-weight:700;font-size:12px;cursor:pointer">Install</button><button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:#8a9ab0;font-size:20px;cursor:pointer;padding:0 6px">&times;</button>';
-    document.body.appendChild(b);
-  }, 5000);
-});
 </script>
 </body>
 </html>
+

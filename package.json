@@ -1,0 +1,9 @@
+{
+  "name": "elevare-app-us",
+  "version": "2.0.0",
+  "private": true,
+  "dependencies": {
+    "stripe": "^17.4.0",
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}
