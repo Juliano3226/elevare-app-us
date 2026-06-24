@@ -1,14 +1,24 @@
-// This endpoint receives events from Stripe whenever a payment succeeds,
-// fails, or a subscription is canceled. It updates the user's status
-// in Supabase so the app can block access when needed.
+// Stripe webhook — single source of truth for subscription status.
+//
+// Design principle: this webhook NEVER assumes a `profiles` row already
+// exists. It always upserts `paid_customers` (keyed by email, the only
+// identifier Stripe reliably gives us before signup), and ALSO updates
+// `profiles` whenever a matching row exists (keyed by stripe_customer_id,
+// which is reliable after signup). This way it works correctly no matter
+// which order things happen in.
 
 import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
 
 export const config = {
   api: {
     bodyParser: false,
   },
 };
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2024-06-20',
+});
 
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -29,9 +39,7 @@ export default async function handler(req, res) {
 
   let event;
   try {
-    // Verify the webhook actually came from Stripe (manual verification,
-    // no stripe package dependency needed)
-    event = verifyStripeSignature(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);
     return res.status(400).json({ error: 'Invalid signature' });
@@ -46,20 +54,38 @@ export default async function handler(req, res) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
-        const customerEmail = session.customer_details?.email || session.customer_email;
+        if (session.mode !== 'subscription' || session.payment_status !== 'paid') break;
+
+        const email = session.customer_details?.email || session.customer_email;
         const customerId = session.customer;
         const subscriptionId = session.subscription;
+        const plan = session.metadata?.plan || null;
 
-        if (customerEmail) {
-          await supa
-            .from('profiles')
-            .update({
-              subscription_status: 'active',
-              stripe_customer_id: customerId,
-              stripe_subscription_id: subscriptionId,
-            })
-            .eq('email', customerEmail);
-        }
+        if (!email) break;
+
+        await supa.from('paid_customers').upsert(
+          {
+            email,
+            plan,
+            stripe_customer_id: customerId,
+            stripe_subscription_id: subscriptionId,
+            subscription_status: 'active',
+            last_session_id: session.id,
+          },
+          { onConflict: 'email' }
+        );
+
+        // If an account already exists for this customer (re-subscribe
+        // case), keep it in sync too.
+        await supa
+          .from('profiles')
+          .update({
+            subscription_status: 'active',
+            stripe_subscription_id: subscriptionId,
+            plano: plan || undefined,
+          })
+          .eq('stripe_customer_id', customerId);
+
         break;
       }
 
@@ -67,14 +93,18 @@ export default async function handler(req, res) {
         const invoice = event.data.object;
         const customerId = invoice.customer;
         const periodEnd = invoice.lines?.data?.[0]?.period?.end;
+        const periodEndIso = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
+
+        await supa
+          .from('paid_customers')
+          .update({ subscription_status: 'active', current_period_end: periodEndIso })
+          .eq('stripe_customer_id', customerId);
 
         await supa
           .from('profiles')
-          .update({
-            subscription_status: 'active',
-            current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-          })
+          .update({ subscription_status: 'active', current_period_end: periodEndIso })
           .eq('stripe_customer_id', customerId);
+
         break;
       }
 
@@ -83,9 +113,37 @@ export default async function handler(req, res) {
         const customerId = invoice.customer;
 
         await supa
+          .from('paid_customers')
+          .update({ subscription_status: 'past_due' })
+          .eq('stripe_customer_id', customerId);
+
+        await supa
           .from('profiles')
           .update({ subscription_status: 'past_due' })
           .eq('stripe_customer_id', customerId);
+
+        break;
+      }
+
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object;
+        const customerId = subscription.customer;
+        // Mirror Stripe's own status (covers e.g. 'unpaid', 'incomplete_expired', 'trialing')
+        const status = subscription.status === 'active' ? 'active'
+          : subscription.status === 'past_due' ? 'past_due'
+          : subscription.status === 'canceled' ? 'canceled'
+          : subscription.status;
+
+        await supa
+          .from('paid_customers')
+          .update({ subscription_status: status })
+          .eq('stripe_customer_id', customerId);
+
+        await supa
+          .from('profiles')
+          .update({ subscription_status: status })
+          .eq('stripe_customer_id', customerId);
+
         break;
       }
 
@@ -94,14 +152,19 @@ export default async function handler(req, res) {
         const customerId = subscription.customer;
 
         await supa
+          .from('paid_customers')
+          .update({ subscription_status: 'canceled' })
+          .eq('stripe_customer_id', customerId);
+
+        await supa
           .from('profiles')
           .update({ subscription_status: 'canceled' })
           .eq('stripe_customer_id', customerId);
+
         break;
       }
 
       default:
-        // Ignore other event types
         break;
     }
 
@@ -110,32 +173,4 @@ export default async function handler(req, res) {
     console.error('Webhook handler error:', err.message);
     return res.status(500).json({ error: 'Internal error' });
   }
-}
-
-// Minimal Stripe webhook signature verification without the stripe SDK
-function verifyStripeSignature(payload, sigHeader, secret) {
-  const crypto = require('crypto');
-  if (!sigHeader) throw new Error('Missing stripe-signature header');
-
-  const parts = sigHeader.split(',').reduce((acc, part) => {
-    const [key, value] = part.split('=');
-    acc[key] = value;
-    return acc;
-  }, {});
-
-  const timestamp = parts.t;
-  const signature = parts.v1;
-  if (!timestamp || !signature) throw new Error('Malformed signature header');
-
-  const signedPayload = `${timestamp}.${payload}`;
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(signedPayload, 'utf8')
-    .digest('hex');
-
-  if (expectedSignature !== signature) {
-    throw new Error('Signature mismatch');
-  }
-
-  return JSON.parse(payload);
 }
