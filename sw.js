@@ -3,7 +3,7 @@
 // loads. It deliberately does NOT cache /api/* requests (always must hit
 // the network) so payments, auth, and AI chat are never served stale.
 
-const CACHE_NAME = 'elevare-shell-v1';
+const CACHE_NAME = 'elevare-shell-v2';
 const SHELL_ASSETS = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
