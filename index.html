@@ -44,6 +44,21 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
 .ob-tagline-sub{font-size:13px;color:var(--gray);line-height:1.6;margin-bottom:48px;}
 .ob-stars{font-size:20px;letter-spacing:4px;margin-bottom:16px;}
 .ob-trust{font-size:11px;color:var(--gray);}
+.ob-preview-row{display:flex;gap:12px;justify-content:center;margin-bottom:28px;margin-top:20px;}
+.ob-preview-thumb{width:64px;height:64px;border-radius:16px;overflow:hidden;border:2px solid rgba(201,168,76,.4);cursor:pointer;position:relative;flex-shrink:0;}
+.ob-preview-thumb img{width:100%;height:100%;object-fit:cover;object-position:top;display:block;}
+#previewModal{position:fixed;inset:0;background:var(--navy);z-index:900;display:none;flex-direction:column;overflow:hidden;}
+#previewModal.show{display:flex;}
+.pv-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 8px;}
+.pv-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;}
+.pv-close{background:transparent;border:none;color:var(--gray);font-size:24px;cursor:pointer;line-height:1;padding:4px 8px;}
+.pv-track{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;}
+.pv-track::-webkit-scrollbar{display:none;}
+.pv-slide{flex:0 0 100%;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 24px 24px;}
+.pv-slide img{width:100%;max-width:320px;border-radius:20px;border:1px solid rgba(201,168,76,.25);box-shadow:0 20px 60px rgba(0,0,0,.4);}
+.pv-caption{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold2);margin-top:20px;text-align:center;}
+.pv-caption-sub{font-size:13px;color:var(--gray);margin-top:6px;text-align:center;max-width:300px;line-height:1.5;}
+.pv-footer{padding:16px 24px 28px;}
 
 .ob-plans{background:var(--navy);overflow-y:auto;padding:0 0 32px;}
 .ob-plans::-webkit-scrollbar{display:none;}
@@ -268,6 +283,11 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
     <div class="ob-tagline-sub">Financial control, AI consulting and much more &mdash; all on your phone.</div>
     <div class="ob-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
     <div class="ob-trust">+500 business owners already use Elevare</div>
+    <div class="ob-preview-row" onclick="openPreview()">
+      <div class="ob-preview-thumb"><img src="screenshot-hello.png" alt="Painel do Elevare"></div>
+      <div class="ob-preview-thumb"><img src="screenshot-overview.png" alt="Controle financeiro do Elevare"></div>
+      <div class="ob-preview-thumb"><img src="screenshot-ai-chat.png" alt="Assistente de IA do Elevare"></div>
+    </div>
     <div style="margin-top:40px;width:100%;max-width:360px;">
       <button class="btn-primary" onclick="goToPlans()">Get Started &rarr;</button>
       <button onclick="showLogin()" class="btn-secondary-outline">I already have an account &mdash; Sign In</button>
@@ -547,6 +567,7 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
       <select class="form-input form-select" id="txCat"></select>
     </div>
     <button class="btn-primary" onclick="saveTx()">Save</button>
+    <button class="btn-cancel" id="txDeleteBtn" style="display:none;border-color:rgba(231,76,60,.4);color:var(--danger);" onclick="deleteTx()">Delete</button>
     <button class="btn-cancel" onclick="closeModal()">Cancel</button>
   </div>
 </div>
@@ -586,6 +607,7 @@ const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 let currentUser = null;
 let userProfile = null;
 let transactions = [];
+let editingTxId = null;
 let selectedPlan = 'pro';
 let authMode = 'register';
 let chatHistory = [];
@@ -833,6 +855,8 @@ function applyAuthModeUI() {
   }
 }
 
+function openPreview(){document.getElementById('previewModal').classList.add('show');}
+function closePreview(){document.getElementById('previewModal').classList.remove('show');}
 function goToPlans() {
   document.getElementById('ob-welcome').classList.remove('active');
   document.getElementById('ob-plans').classList.add('active');
@@ -1002,18 +1026,29 @@ function renderChart() {
   document.getElementById('chartBars').innerHTML = html;
 }
 
-function openModal(type) {
+function openModal(type, editTx) {
   currentTxType = type;
-  document.getElementById('modalTitle').textContent = (type === 'income') ? 'New Income' : 'New Expense';
+  editingTxId = editTx ? editTx.id : null;
+  document.getElementById('modalTitle').textContent = editTx
+    ? ((type === 'income') ? 'Edit Income' : 'Edit Expense')
+    : ((type === 'income') ? 'New Income' : 'New Expense');
   const cats = (type === 'income') ? ['Sales','Services','Investments','Other'] : ['Payroll','Rent','Marketing','Suppliers','Taxes','Other'];
   let opts = '';
   for (let i = 0; i < cats.length; i++) opts += '<option>' + cats[i] + '</option>';
   document.getElementById('txCat').innerHTML = opts;
-  document.getElementById('txDesc').value = '';
-  document.getElementById('txValue').value = '';
+  document.getElementById('txDesc').value = editTx ? editTx.descricao : '';
+  document.getElementById('txValue').value = editTx ? editTx.value : '';
+  if (editTx && cats.indexOf(editTx.cat) !== -1) document.getElementById('txCat').value = editTx.cat;
+  document.getElementById('txDeleteBtn').style.display = editTx ? 'block' : 'none';
   document.getElementById('txModal').classList.add('show');
 }
-function closeModal() { document.getElementById('txModal').classList.remove('show'); }
+function closeModal() { document.getElementById('txModal').classList.remove('show'); editingTxId = null; }
+
+function editTransaction(id) {
+  const t = transactions.find(function(tx) { return tx.id === id; });
+  if (!t) return;
+  openModal(t.type, t);
+}
 
 async function saveTx() {
   const descricao = document.getElementById('txDesc').value.trim();
@@ -1021,6 +1056,23 @@ async function saveTx() {
   const cat = document.getElementById('txCat').value;
   if (!descricao || !val || val <= 0) { alert('Please fill in description and amount.'); return; }
   showLoading('Saving...');
+  if (editingTxId) {
+    const result = await supa.from('transactions').update({
+      descricao: descricao,
+      value: val,
+      cat: cat
+    }).eq('id', editingTxId).select().single();
+    hideLoading();
+    if (result.error) { alert('Error saving: ' + result.error.message); return; }
+    const idx = transactions.findIndex(function(tx) { return tx.id === editingTxId; });
+    if (idx !== -1) transactions[idx] = result.data;
+    editingTxId = null;
+    closeModal();
+    updateKPIs();
+    renderTransactions();
+    renderChart();
+    return;
+  }
   const result = await supa.from('transactions').insert({
     user_id: currentUser.id,
     type: currentTxType,
@@ -1038,6 +1090,21 @@ async function saveTx() {
   renderChart();
 }
 
+async function deleteTx() {
+  if (!editingTxId) return;
+  if (!confirm('Delete this transaction? This cannot be undone.')) return;
+  showLoading('Deleting...');
+  const result = await supa.from('transactions').delete().eq('id', editingTxId);
+  hideLoading();
+  if (result.error) { alert('Error deleting: ' + result.error.message); return; }
+  transactions = transactions.filter(function(tx) { return tx.id !== editingTxId; });
+  editingTxId = null;
+  closeModal();
+  updateKPIs();
+  renderTransactions();
+  renderChart();
+}
+
 function renderTransactions() {
   const list = document.getElementById('txList');
   if (!transactions.length) {
@@ -1049,7 +1116,7 @@ function renderTransactions() {
   for (let i = 0; i < items.length; i++) {
     const t = items[i];
     const d = new Date(t.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
-    html += '<div class="transaction-item"><div class="tx-left"><div class="tx-icon ' + t.type + '">' + (t.type === 'income' ? '&#128200;' : '&#128228;') + '</div><div><div class="tx-name">' + t.descricao + '</div><div class="tx-date">' + t.cat + ' &middot; ' + d + '</div></div></div><div class="tx-amount ' + t.type + '">' + (t.type === 'income' ? '+' : '-') + fmtFull(t.value) + '</div></div>';
+    html += '<div class="transaction-item" style="cursor:pointer;" onclick="editTransaction(\'' + t.id + '\')"><div class="tx-left"><div class="tx-icon ' + t.type + '">' + (t.type === 'income' ? '&#128200;' : '&#128228;') + '</div><div><div class="tx-name">' + t.descricao + '</div><div class="tx-date">' + t.cat + ' &middot; ' + d + '</div></div></div><div class="tx-amount ' + t.type + '">' + (t.type === 'income' ? '+' : '-') + fmtFull(t.value) + '</div></div>';
   }
   list.innerHTML = html;
 }
@@ -1225,6 +1292,32 @@ async function handleLogout() {
   location.reload();
 }
 </script>
+<div id="previewModal">
+  <div class="pv-header">
+    <div class="pv-title">Veja o Elevare em ação</div>
+    <button class="pv-close" onclick="closePreview()">&times;</button>
+  </div>
+  <div class="pv-track">
+    <div class="pv-slide">
+      <img src="screenshot-hello.png" alt="Visão geral do painel Elevare">
+      <div class="pv-caption">Sua visão geral, em segundos</div>
+      <div class="pv-caption-sub">Receita, despesas e saldo do período, atualizados assim que você entra.</div>
+    </div>
+    <div class="pv-slide">
+      <img src="screenshot-overview.png" alt="Histórico de transações do Elevare">
+      <div class="pv-caption">Todo movimento, organizado</div>
+      <div class="pv-caption-sub">Cada entrada e saída registrada e categorizada, sem planilha e sem bagunça.</div>
+    </div>
+    <div class="pv-slide">
+      <img src="screenshot-ai-chat.png" alt="Assistente de IA do Elevare">
+      <div class="pv-caption">Um consultor de negócios, 24h por dia</div>
+      <div class="pv-caption-sub">Pergunte sobre fluxo de caixa, precificação ou retenção e receba orientação na hora.</div>
+    </div>
+  </div>
+  <div class="pv-footer">
+    <button class="btn-primary" onclick="closePreview();goToPlans();">Get Started &rarr;</button>
+  </div>
+</div>
+
 </body>
 </html>
-
