@@ -243,6 +243,16 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
 .install-steps li{display:flex;align-items:flex-start;gap:12px;font-size:13px;color:var(--white);line-height:1.5;margin-bottom:14px;}
 .install-steps .step-num{background:var(--gold);color:var(--navy);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
 </style>
+
+<!-- Google tag (gtag.js) — Google Ads conversion tracking -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-17966735119"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-17966735119');
+</script>
+
 </head>
 <body>
 
@@ -1259,6 +1269,18 @@ async function handleAuth() {
     hideLoading();
     if (signInResult.error) { showErr(translateError(signInResult.error.message)); btn.disabled = false; return; }
     currentUser = signInResult.data.user;
+
+    // Google Ads conversion — fires once, right when a new paying customer is created
+    try {
+      const planValue = (selectedPlan === 'pro') ? 49 : 29;
+      gtag('event', 'conversion', {
+        'send_to': 'AW-17966735119/wmyOCKGorMocEI--mvdC',
+        'value': planValue,
+        'currency': 'USD',
+        'transaction_id': verifiedPaymentSession.session_id
+      });
+    } catch (e) { /* never block signup if the tag fails */ }
+
     verifiedPaymentSession = null;
     await loadProfile();
     await loadTransactions();
