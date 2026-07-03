@@ -1045,7 +1045,7 @@ function openModal(type, editTx) {
 function closeModal() { document.getElementById('txModal').classList.remove('show'); editingTxId = null; }
 
 function editTransaction(id) {
-  const t = transactions.find(function(tx) { return tx.id === id; });
+  const t = transactions.find(function(tx) { return String(tx.id) === String(id); });
   if (!t) return;
   openModal(t.type, t);
 }
