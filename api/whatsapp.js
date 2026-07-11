@@ -1,18 +1,13 @@
-// WhatsApp webhook (Twilio) — recebe texto ou áudio, extrai o gasto com IA
-// (Groq/Llama para texto, Groq Whisper para transcrição de áudio) e grava
-// na tabela `whatsapp_expenses` do Supabase, vinculado ao número de telefone.
-//
-// Fluxo:
-// 1. Twilio manda POST aqui toda vez que alguém escreve pro seu número WhatsApp
-// 2. Se vier áudio, baixamos o arquivo do Twilio e transcrevemos com Groq Whisper
-// 3. O texto (falado ou digitado) vai pro Llama, que devolve um JSON estruturado
-// 4. Gravamos no Supabase e respondemos confirmando pro usuário no WhatsApp
+// WhatsApp webhook (Twilio) — v2 com vínculo de usuário
+// Novidade: busca o user_id na tabela `whatsapp_links` pelo número de quem
+// mandou a mensagem. Se o número não estiver vinculado, responde orientando
+// o cadastro. O gasto é gravado já com o user_id do dono da conta Elevare.
 
 import { createClient } from '@supabase/supabase-js';
 
 export const config = {
   api: {
-    bodyParser: true, // Twilio manda application/x-www-form-urlencoded, o parser padrão da Vercel já resolve
+    bodyParser: true,
   },
 };
 
@@ -21,7 +16,19 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Baixa o áudio do Twilio (a URL de mídia exige autenticação básica com suas credenciais Twilio)
+// Busca o user_id vinculado a este número de telefone
+async function buscarUsuarioPorTelefone(telefone) {
+  const { data, error } = await supabase
+    .from('whatsapp_links')
+    .select('user_id')
+    .eq('phone_number', telefone)
+    .single();
+
+  if (error || !data) return null;
+  return data.user_id;
+}
+
+// Baixa o áudio do Twilio (a URL de mídia exige autenticação básica)
 async function baixarAudioTwilio(mediaUrl) {
   const auth = Buffer.from(
     `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
@@ -108,14 +115,12 @@ Rules:
 
   const data = await response.json();
   const raw = data.choices[0].message.content.trim();
-
-  // Remove eventuais blocos de markdown ```json que o modelo às vezes adiciona
   const jsonLimpo = raw.replace(/```json\n?|```\n?/g, '').trim();
 
   return JSON.parse(jsonLimpo);
 }
 
-// Monta a resposta TwiML que o Twilio espera para responder no WhatsApp
+// Monta a resposta TwiML que o Twilio espera
 function respostaTwiML(mensagem) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -130,13 +135,24 @@ export default async function handler(req, res) {
 
   try {
     const { Body, From, NumMedia, MediaUrl0, MediaContentType0 } = req.body;
-
-    // Número do usuário sem o prefixo "whatsapp:" que o Twilio adiciona
     const telefone = (From || '').replace('whatsapp:', '');
+
+    // NOVO: busca o usuário vinculado a este telefone
+    const userId = await buscarUsuarioPorTelefone(telefone);
+
+    if (!userId) {
+      res.setHeader('Content-Type', 'text/xml');
+      return res
+        .status(200)
+        .send(
+          respostaTwiML(
+            "This number isn't linked to an Elevare account yet. Please link your WhatsApp number in the app settings first."
+          )
+        );
+    }
 
     let textoParaAnalise = Body || '';
 
-    // Se veio áudio, baixa e transcreve antes de tudo
     const temAudio = Number(NumMedia) > 0 && MediaContentType0?.startsWith('audio');
     if (temAudio) {
       const audioBuffer = await baixarAudioTwilio(MediaUrl0);
@@ -154,7 +170,6 @@ export default async function handler(req, res) {
         );
     }
 
-    // Extrai os dados estruturados do gasto
     const gasto = await extrairGasto(textoParaAnalise);
 
     if (gasto.confidence === 'low' || gasto.amount === null) {
@@ -168,9 +183,10 @@ export default async function handler(req, res) {
         );
     }
 
-    // Grava no Supabase
+    // Grava no Supabase, agora com o user_id vinculado
     const { error } = await supabase.from('whatsapp_expenses').insert({
       phone_number: telefone,
+      user_id: userId,
       amount: gasto.amount,
       category: gasto.category,
       type: gasto.type,
@@ -191,7 +207,6 @@ export default async function handler(req, res) {
         );
     }
 
-    // Confirma pro usuário
     const tipoLabel = gasto.type === 'business' ? 'Business' : 'Personal';
     res.setHeader('Content-Type', 'text/xml');
     return res
