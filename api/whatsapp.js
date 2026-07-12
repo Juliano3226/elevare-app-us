@@ -1,7 +1,8 @@
-// WhatsApp webhook (Twilio) — v3
-// Agora grava direto na tabela `transactions` (a que o dashboard da Elevare lê),
-// com o mapeamento: amount → value, description → descricao, category → cat,
-// e type fixo em 'expense' (gasto). O user_id vem do vínculo em `whatsapp_links`.
+// api/whatsapp.js — v4
+// Novidade: reconhece códigos de verificação (formato ELV-1234) enviados
+// pelo WhatsApp. Quando o usuário manda o código gerado no app, o webhook
+// valida e vincula o número dele em `whatsapp_links` automaticamente.
+// Depois de vinculado, todas as mensagens registram transações normalmente.
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -15,6 +16,47 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// Detecta se a mensagem é um código de verificação (ex: ELV-4829)
+function extrairCodigoVerificacao(texto) {
+  const match = (texto || '').trim().toUpperCase().match(/^ELV-\d{4}$/);
+  return match ? match[0] : null;
+}
+
+// Valida o código e cria o vínculo telefone → usuário
+async function processarCodigoVerificacao(codigo, telefone) {
+  const { data: registro, error } = await supabase
+    .from('whatsapp_link_codes')
+    .select('user_id, expires_at')
+    .eq('code', codigo)
+    .single();
+
+  if (error || !registro) {
+    return { ok: false, motivo: 'invalido' };
+  }
+
+  if (new Date(registro.expires_at) < new Date()) {
+    return { ok: false, motivo: 'expirado' };
+  }
+
+  // Cria ou atualiza o vínculo (upsert pelo telefone)
+  const { error: upsertError } = await supabase
+    .from('whatsapp_links')
+    .upsert(
+      { phone_number: telefone, user_id: registro.user_id },
+      { onConflict: 'phone_number' }
+    );
+
+  if (upsertError) {
+    console.error('Erro ao vincular número:', upsertError);
+    return { ok: false, motivo: 'erro' };
+  }
+
+  // Remove o código usado
+  await supabase.from('whatsapp_link_codes').delete().eq('code', codigo);
+
+  return { ok: true };
+}
 
 // Busca o user_id vinculado a este número de telefone
 async function buscarUsuarioPorTelefone(telefone) {
@@ -71,8 +113,7 @@ async function transcreverAudio(audioBuffer) {
   return data.text;
 }
 
-// Extrai valor, categoria e descrição usando Llama.
-// Também detecta se é receita (income) ou gasto (expense).
+// Extrai valor, categoria, fluxo (expense/income) e descrição usando Llama
 async function extrairTransacao(textoUsuario) {
   const prompt = `Extract transaction information from this message and return ONLY valid JSON, nothing else.
 
@@ -138,6 +179,34 @@ export default async function handler(req, res) {
     const { Body, From, NumMedia, MediaUrl0, MediaContentType0 } = req.body;
     const telefone = (From || '').replace('whatsapp:', '');
 
+    // 1. Se a mensagem for um código de verificação, processa o vínculo
+    const codigo = extrairCodigoVerificacao(Body);
+    if (codigo) {
+      const resultado = await processarCodigoVerificacao(codigo, telefone);
+      res.setHeader('Content-Type', 'text/xml');
+
+      if (resultado.ok) {
+        return res
+          .status(200)
+          .send(
+            respostaTwiML(
+              '✅ Your WhatsApp number is now linked to your Elevare account! Send me expenses like: "spent $40 on gas today"'
+            )
+          );
+      }
+
+      const mensagens = {
+        invalido: 'This code is not valid. Generate a new one in the Elevare app settings.',
+        expirado: 'This code has expired. Generate a new one in the Elevare app settings.',
+        erro: 'Something went wrong linking your number. Please try again.',
+      };
+
+      return res
+        .status(200)
+        .send(respostaTwiML(mensagens[resultado.motivo] || mensagens.erro));
+    }
+
+    // 2. Fluxo normal: busca o usuário vinculado
     const userId = await buscarUsuarioPorTelefone(telefone);
 
     if (!userId) {
@@ -146,7 +215,7 @@ export default async function handler(req, res) {
         .status(200)
         .send(
           respostaTwiML(
-            "This number isn't linked to an Elevare account yet. Please link your WhatsApp number in the app settings first."
+            "This number isn't linked to an Elevare account yet. Open the Elevare app, go to Settings, and generate your verification code."
           )
         );
     }
@@ -183,7 +252,6 @@ export default async function handler(req, res) {
         );
     }
 
-    // Grava direto na tabela `transactions` que o dashboard da Elevare lê
     const { error } = await supabase.from('transactions').insert({
       user_id: userId,
       type: transacao.flow === 'income' ? 'income' : 'expense',
