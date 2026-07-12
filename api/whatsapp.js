@@ -1,7 +1,7 @@
-// WhatsApp webhook (Twilio) — v2 com vínculo de usuário
-// Novidade: busca o user_id na tabela `whatsapp_links` pelo número de quem
-// mandou a mensagem. Se o número não estiver vinculado, responde orientando
-// o cadastro. O gasto é gravado já com o user_id do dono da conta Elevare.
+// WhatsApp webhook (Twilio) — v3
+// Agora grava direto na tabela `transactions` (a que o dashboard da Elevare lê),
+// com o mapeamento: amount → value, description → descricao, category → cat,
+// e type fixo em 'expense' (gasto). O user_id vem do vínculo em `whatsapp_links`.
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -71,24 +71,25 @@ async function transcreverAudio(audioBuffer) {
   return data.text;
 }
 
-// Extrai valor, categoria, tipo (business/personal) e descrição usando Llama
-async function extrairGasto(textoUsuario) {
-  const prompt = `Extract expense information from this message and return ONLY valid JSON, nothing else.
+// Extrai valor, categoria e descrição usando Llama.
+// Também detecta se é receita (income) ou gasto (expense).
+async function extrairTransacao(textoUsuario) {
+  const prompt = `Extract transaction information from this message and return ONLY valid JSON, nothing else.
 
 Message: "${textoUsuario}"
 
 Return this exact JSON structure:
 {
-  "amount": <number, the expense amount>,
-  "category": "<one of: fuel, rent, groceries, utilities, marketing, software, supplies, food, transport, salary, other>",
-  "type": "<business or personal>",
-  "description": "<short description of what was purchased>",
+  "amount": <number, the transaction amount>,
+  "flow": "<expense or income — expense if money was spent/paid, income if money was received/earned>",
+  "category": "<one of: fuel, rent, groceries, utilities, marketing, software, supplies, food, transport, salary, sales, other>",
+  "description": "<short description>",
   "confidence": "<high, medium, or low>"
 }
 
 If you cannot confidently extract an amount, set "confidence" to "low" and "amount" to null.
 Rules:
-- Infer "type" (business vs personal) from context. If unclear, default to "personal".
+- Default "flow" to "expense" when unclear.
 - Respond in English regardless of the input language.
 - Return ONLY the JSON object, no markdown, no explanation.`;
 
@@ -137,7 +138,6 @@ export default async function handler(req, res) {
     const { Body, From, NumMedia, MediaUrl0, MediaContentType0 } = req.body;
     const telefone = (From || '').replace('whatsapp:', '');
 
-    // NOVO: busca o usuário vinculado a este telefone
     const userId = await buscarUsuarioPorTelefone(telefone);
 
     if (!userId) {
@@ -170,9 +170,9 @@ export default async function handler(req, res) {
         );
     }
 
-    const gasto = await extrairGasto(textoParaAnalise);
+    const transacao = await extrairTransacao(textoParaAnalise);
 
-    if (gasto.confidence === 'low' || gasto.amount === null) {
+    if (transacao.confidence === 'low' || transacao.amount === null) {
       res.setHeader('Content-Type', 'text/xml');
       return res
         .status(200)
@@ -183,16 +183,14 @@ export default async function handler(req, res) {
         );
     }
 
-    // Grava no Supabase, agora com o user_id vinculado
-    const { error } = await supabase.from('whatsapp_expenses').insert({
-      phone_number: telefone,
+    // Grava direto na tabela `transactions` que o dashboard da Elevare lê
+    const { error } = await supabase.from('transactions').insert({
       user_id: userId,
-      amount: gasto.amount,
-      category: gasto.category,
-      type: gasto.type,
-      description: gasto.description,
-      original_message: textoParaAnalise,
-      source: temAudio ? 'audio' : 'text',
+      type: transacao.flow === 'income' ? 'income' : 'expense',
+      descricao: transacao.description,
+      value: transacao.amount,
+      cat: transacao.category,
+      date: new Date().toISOString(),
     });
 
     if (error) {
@@ -207,13 +205,13 @@ export default async function handler(req, res) {
         );
     }
 
-    const tipoLabel = gasto.type === 'business' ? 'Business' : 'Personal';
+    const flowLabel = transacao.flow === 'income' ? 'Income' : 'Expense';
     res.setHeader('Content-Type', 'text/xml');
     return res
       .status(200)
       .send(
         respostaTwiML(
-          `✅ Logged: ${gasto.description} — $${gasto.amount} (${tipoLabel}, ${gasto.category})`
+          `✅ Logged: ${transacao.description} — $${transacao.amount} (${flowLabel}, ${transacao.category})`
         )
       );
   } catch (err) {
