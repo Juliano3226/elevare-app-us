@@ -541,6 +541,20 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
         </div>
       </div>
 
+     <div style="margin-top:28px;">
+        <div class="section-title">WhatsApp Assistant</div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px;">
+          <div style="font-size:13px;color:var(--gray);line-height:1.5;margin-bottom:16px;">Log expenses and income by sending a text or voice message on WhatsApp.</div>
+          <button class="btn-whatsapp" id="btnLinkWhatsapp" onclick="generateWhatsappCode()">Link my WhatsApp</button>
+          <div id="wppCodeResult" style="display:none;margin-top:16px;text-align:center;">
+            <div style="font-size:12px;color:var(--gray);margin-bottom:8px;">Send this code to our WhatsApp to confirm:</div>
+            <div id="wppCodeDisplay" style="font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:600;color:var(--gold);letter-spacing:3px;margin-bottom:8px;"></div>
+            <div style="font-size:13px;color:var(--white);">WhatsApp: <strong style="color:var(--gold)">+1 415 523 8886</strong></div>
+            <div style="font-size:11px;color:var(--gray);margin-top:4px;">(code expires in 15 minutes)</div>
+          </div>
+          <div id="wppCodeError" style="display:none;color:var(--danger);font-size:12px;margin-top:12px;text-align:center;"></div>
+        </div>
+      </div>
       <div class="empresa-install-row" id="empresaInstallRow" onclick="handleInstallClick()">
         <div class="ei-text">
           <div class="ei-title">&#128241; Install Elevare on this device</div>
@@ -1303,7 +1317,43 @@ async function handleAuth() {
 }
 
 
-async function handleLogout() {
+async function generateWhatsappCode() {
+  const errEl = document.getElementById('wppCodeError');
+  const resultEl = document.getElementById('wppCodeResult');
+  const btn = document.getElementById('btnLinkWhatsapp');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
+  try {
+    const sessionResult = await supa.auth.getSession();
+    const token = sessionResult.data.session && sessionResult.data.session.access_token;
+    if (!token) {
+      errEl.textContent = 'You need to be logged in.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Link my WhatsApp';
+      return;
+    }
+    const res = await fetch('/api/whatsapp-link-code', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Failed to generate code. Try again.';
+      errEl.style.display = 'block';
+    } else {
+      document.getElementById('wppCodeDisplay').textContent = data.code;
+      resultEl.style.display = 'block';
+    }
+  } catch (e) {
+    errEl.textContent = 'Connection error. Try again.';
+    errEl.style.display = 'block';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Link my WhatsApp';
+}
+  async function handleLogout() {
   if (!confirm('Are you sure you want to sign out?')) return;
   showLoading('Signing out...');
   await supa.auth.signOut();
