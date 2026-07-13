@@ -42,34 +42,25 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid session' });
     }
 
-    // 2. Verifica se o usuário tem assinatura ativa.
-    // Ajuste o nome da tabela/coluna se o seu controle de assinatura
-    // for diferente — aqui usamos `profiles.subscription_status`,
-    // e como fallback checamos a tabela `paid_customers` pelo email.
-    let assinaturaAtiva = false;
-
+// 2. Verifica assinatura ativa E plano Pro
     const { data: profile } = await supabase
       .from('profiles')
-      .select('subscription_status')
+      .select('subscription_status, plano')
       .eq('id', user.id)
       .single();
 
-    if (profile && ['active', 'trialing'].includes(profile.subscription_status)) {
-      assinaturaAtiva = true;
-    }
-
-    if (!assinaturaAtiva) {
-      const { data: paid } = await supabase
-        .from('paid_customers')
-        .select('id')
-        .eq('email', user.email)
-        .single();
-      if (paid) assinaturaAtiva = true;
-    }
+    const assinaturaAtiva = profile && profile.subscription_status === 'active';
+    const isPro = profile && profile.plano === 'pro';
 
     if (!assinaturaAtiva) {
       return res.status(403).json({
         error: 'Active subscription required to use the WhatsApp assistant',
+      });
+    }
+
+    if (!isPro) {
+      return res.status(403).json({
+        error: 'The WhatsApp assistant is exclusive to the Pro plan. Upgrade to unlock it!',
       });
     }
 
