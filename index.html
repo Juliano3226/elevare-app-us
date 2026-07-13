@@ -528,23 +528,14 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
       </button>
       <div style="margin-top:8px;text-align:center;font-size:11px;color:var(--gray);">Available on Pro Plan</div>
 
-      <div style="margin-top:28px;">
-        <div class="section-title">Pro Support</div>
-        <div style="background:linear-gradient(135deg,#1c1500,#2e2200);border:2px solid var(--gold);border-radius:18px;padding:20px;position:relative;overflow:hidden;">
+      <div style="margin-top:28px;" id="wppAssistantSection">
+        <div class="section-title">WhatsApp Assistant</div>
+
+        <div id="wppAssistantPro" style="display:none;background:linear-gradient(135deg,#1c1500,#2e2200);border:2px solid var(--gold);border-radius:18px;padding:20px;position:relative;overflow:hidden;">
           <div style="position:absolute;top:-40px;right:-40px;width:120px;height:120px;background:radial-gradient(circle,rgba(201,168,76,.15),transparent);border-radius:50%;"></div>
           <div style="font-size:11px;letter-spacing:3px;color:var(--gold);text-transform:uppercase;margin-bottom:8px;">Pro Plan Exclusive</div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;margin-bottom:6px;">Talk to our consultant</div>
-          <div style="font-size:13px;color:var(--gray);line-height:1.5;margin-bottom:20px;">Get answers and personalized guidance.</div>
-          <button class="btn-whatsapp" onclick="openSupport()">
-            Contact Support
-          </button>
-        </div>
-      </div>
-
-     <div style="margin-top:28px;">
-        <div class="section-title">WhatsApp Assistant</div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px;">
-          <div style="font-size:13px;color:var(--gray);line-height:1.5;margin-bottom:16px;">Log expenses and income by sending a text or voice message on WhatsApp.</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;margin-bottom:6px;">Your AI assistant on WhatsApp</div>
+          <div style="font-size:13px;color:var(--gray);line-height:1.5;margin-bottom:20px;">Log expenses and income by sending a text or voice message. They appear in your dashboard instantly.</div>
           <button class="btn-whatsapp" id="btnLinkWhatsapp" onclick="generateWhatsappCode()">Link my WhatsApp</button>
           <div id="wppCodeResult" style="display:none;margin-top:16px;text-align:center;">
             <div style="font-size:12px;color:var(--gray);margin-bottom:8px;">Send this code to our WhatsApp to confirm:</div>
@@ -554,15 +545,15 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
           </div>
           <div id="wppCodeError" style="display:none;color:var(--danger);font-size:12px;margin-top:12px;text-align:center;"></div>
         </div>
-      </div>
-      <div class="empresa-install-row" id="empresaInstallRow" onclick="handleInstallClick()">
-        <div class="ei-text">
-          <div class="ei-title">&#128241; Install Elevare on this device</div>
-          <div class="ei-sub">Quick access from your home screen</div>
+
+        <div id="wppAssistantLocked" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px;text-align:center;">
+          <div style="font-size:32px;margin-bottom:10px;">&#128274;</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;margin-bottom:6px;">WhatsApp AI Assistant</div>
+          <div style="font-size:13px;color:var(--gray);line-height:1.5;">Log expenses by voice message on WhatsApp.<br>Exclusive to the <strong style="color:var(--gold)">Pro Plan</strong>.</div>
         </div>
-        <div style="color:var(--gold);font-size:18px;">&rarr;</div>
       </div>
 
+  
       <button class="btn-logout" onclick="handleLogout()">Sign Out</button>
     </div>
   </div>
@@ -982,6 +973,9 @@ function updateEmpresaTab() {
   document.getElementById('empRespDisplay').textContent = nome;
   document.getElementById('empEmailDisplay').textContent = (currentUser && currentUser.email) || '-';
   document.getElementById('empPlanoDisplay').textContent = (plano === 'pro') ? 'Pro' : 'Basic';
+  const isPro = (plano === 'pro');
+  document.getElementById('wppAssistantPro').style.display = isPro ? 'block' : 'none';
+  document.getElementById('wppAssistantLocked').style.display = isPro ? 'none' : 'block';
 }
 
 function updateDate() {
