@@ -290,7 +290,7 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
     <div class="ob-brand">ELEVARE</div>
     <div class="ob-slogan">Consulting</div>
     <div class="ob-tagline">Smart management for your business to grow</div>
-    <div class="ob-tagline-sub">Financial control, AI consulting and much more &mdash; all on your phone.</div>
+   <div class="ob-tagline-sub">Financial control, AI consulting &mdash; and on Pro, log expenses by voice on WhatsApp.</div>
     <div class="ob-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
     <div class="ob-trust">+500 business owners already use Elevare</div>
     <div class="ob-preview-row" onclick="openPreview()">
@@ -316,9 +316,19 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
       </div>
     </div>
     <div class="ob-plans-body">
+<div style="background:rgba(201,168,76,.06);border:1px solid var(--border);border-radius:16px;padding:16px 18px;margin-bottom:18px;">
+        <div style="font-size:10px;letter-spacing:3px;color:var(--gold);text-transform:uppercase;margin-bottom:10px;">What you get with Elevare</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;line-height:1.5;">
+          <div style="display:flex;gap:10px;align-items:flex-start;"><span>&#128202;</span><span>Track income and expenses with a clear monthly dashboard</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;"><span>&#129302;</span><span>AI business consultant to guide pricing, costs and growth</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;"><span>&#128172;</span><span><strong style="color:var(--gold)">Pro:</strong> log expenses by voice on WhatsApp &mdash; they appear in your dashboard instantly</span></div>
+        </div>
+      </div>
+
       <div class="plan-card plan-basic">
         <div class="plan-badge-row"><div class="plan-badge">Plan</div></div>
         <div class="plan-name">Basic</div>
+        <div style="font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.5;">For getting your finances organized.</div>
         <div class="plan-price-row">
           <div class="plan-currency">$</div>
           <div class="plan-amount">29</div>
@@ -329,6 +339,7 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
           <div class="plan-feat"><div class="feat-icon yes">&#10003;</div>Complete financial control</div>
           <div class="plan-feat"><div class="feat-icon yes">&#10003;</div>AI Assistant (50 questions/month)</div>
           <div class="plan-feat"><div class="feat-icon yes">&#10003;</div>Dashboard with metrics</div>
+          <div class="plan-feat dim"><div class="feat-icon no">&#10007;</div>WhatsApp AI Assistant</div>
           <div class="plan-feat dim"><div class="feat-icon no">&#10007;</div>Priority support</div>
           <div class="plan-feat dim"><div class="feat-icon no">&#10007;</div>Multiple businesses</div>
         </div>
@@ -342,17 +353,28 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
           <div class="plan-popular">&#11088; Most Popular</div>
         </div>
         <div class="plan-name">Pro</div>
+        <div style="font-size:12px;color:var(--gray);margin-bottom:14px;line-height:1.5;">For running your business hands-free.</div>
         <div class="plan-price-row">
           <div class="plan-currency">$</div>
           <div class="plan-amount">49</div>
           <div class="plan-period">/month</div>
         </div>
+
+        <div style="background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.35);border-radius:12px;padding:12px 14px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:16px;">&#128172;</span>
+            <span style="font-size:12px;font-weight:700;color:#25d366;letter-spacing:.5px;">WHATSAPP AI ASSISTANT</span>
+          </div>
+          <div style="font-size:12px;color:var(--white);line-height:1.5;">Say <em style="color:var(--gold2)">&ldquo;spent $40 on gas&rdquo;</em> in a voice message &mdash; it lands in your dashboard, categorized, in seconds.</div>
+        </div>
+
         <div class="plan-feats">
+          <div class="plan-feat" style="color:var(--gold)"><div class="feat-icon yes">&#10003;</div><strong>WhatsApp AI Assistant (voice &amp; text)</strong></div>
           <div class="plan-feat"><div class="feat-icon yes">&#10003;</div>Unlimited businesses</div>
           <div class="plan-feat"><div class="feat-icon yes">&#10003;</div>Complete financial control</div>
           <div class="plan-feat"><div class="feat-icon yes">&#10003;</div>Unlimited AI Assistant</div>
           <div class="plan-feat"><div class="feat-icon yes">&#10003;</div>Dashboard with metrics</div>
-          <div class="plan-feat" style="color:var(--gold)"><div class="feat-icon yes">&#10003;</div><strong>Priority support</strong></div>
+          <div class="plan-feat"><div class="feat-icon yes">&#10003;</div>Priority support</div>
           <div class="plan-feat"><div class="feat-icon yes">&#10003;</div>Advanced reports</div>
         </div>
         <button class="btn-plan-pro" onclick="selectPlan('pro')">
