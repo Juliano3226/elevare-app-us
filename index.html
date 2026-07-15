@@ -31,6 +31,7 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
 #onboarding{display:none;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;position:fixed;inset:0;z-index:500;background:var(--navy);}
 #onboarding.show{display:flex;}
 .ob-screen{display:none;flex:1;flex-direction:column;animation:fadeUp .4s ease;overflow:hidden;}
+.trial-badge{flex-shrink:0;background:linear-gradient(90deg,var(--gold),var(--gold2));color:var(--navy);text-align:center;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;padding:10px 16px;letter-spacing:.3px;}
 .ob-screen.active{display:flex;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
@@ -282,6 +283,7 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
 </div>
 
 <div id="onboarding">
+<div class="trial-badge">&#127881; 14-Day Free Trial &mdash; No Charge Today</div>
 
   <div class="ob-screen ob-welcome active" id="ob-welcome">
     <div class="ob-logo-wrap">
