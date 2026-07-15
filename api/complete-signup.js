@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       .from('paid_customers')
       .select('*')
       .eq('last_session_id', session_id)
-      .eq('subscription_status', 'active')
+      .in('subscription_status', ['active', 'trialing'])
       .maybeSingle();
 
     if (paidErr || !paidRecord) {
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       empresa,
       setor,
       plano: paidRecord.plan,
-      subscription_status: 'active',
+      subscription_status: paidRecord.subscription_status,
       stripe_customer_id: paidRecord.stripe_customer_id,
       stripe_subscription_id: paidRecord.stripe_subscription_id,
       current_period_end: paidRecord.current_period_end,
