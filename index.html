@@ -311,7 +311,7 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
         <button onclick="backToWelcome()" style="background:transparent;border:none;color:var(--gray);font-size:20px;cursor:pointer;">&larr;</button>
         <div>
           <div class="ob-plans-title">Choose your plan</div>
-          <div class="ob-plans-sub">No commitment &middot; Cancel anytime</div>
+          <div class="ob-plans-sub">14-day free trial &middot; Cancel anytime</div>
         </div>
       </div>
     </div>
@@ -343,7 +343,7 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
           <div class="plan-feat dim"><div class="feat-icon no">&#10007;</div>Priority support</div>
           <div class="plan-feat dim"><div class="feat-icon no">&#10007;</div>Multiple businesses</div>
         </div>
-        <button class="btn-plan-basic" onclick="selectPlan('basic')">Subscribe Basic &mdash; $29/month</button>
+        <button class="btn-plan-basic" onclick="selectPlan('basic')">Start Free Trial &mdash; Basic ($29/mo after)</button>
       </div>
 
       <div class="plan-card plan-pro">
@@ -378,7 +378,7 @@ html,body{height:100%;background:var(--navy);color:var(--white);font-family:'DM 
           <div class="plan-feat"><div class="feat-icon yes">&#10003;</div>Advanced reports</div>
         </div>
         <button class="btn-plan-pro" onclick="selectPlan('pro')">
-          <span>Subscribe Pro &mdash; $49/month</span>
+          <span>Start Free Trial &mdash; Pro ($49/mo after)</span>
         </button>
       </div>
       <div style="text-align:center;padding:8px 0 16px;font-size:11px;color:var(--gray);line-height:1.6;">
@@ -788,7 +788,7 @@ setTimeout(function() {
 // unless the database says the subscription is active.
 function enforceAccess() {
   const status = userProfile && userProfile.subscription_status;
-  if (status === 'active') {
+  if (status === 'active' || status === 'trialing') {
     document.getElementById('onboarding').style.display = 'none';
     document.getElementById('billingBlocked').classList.remove('show');
     startApp();
