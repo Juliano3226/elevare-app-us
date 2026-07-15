@@ -42,6 +42,7 @@ export default async function handler(req, res) {
       cancel_url: `${origin}/?checkout_canceled=1`,
       metadata: { plan },
       subscription_data: {
+        trial_period_days: 14,
         metadata: { plan },
       },
       allow_promotion_codes: true,
