@@ -54,7 +54,11 @@ export default async function handler(req, res) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
-        if (session.mode !== 'subscription' || session.payment_status !== 'paid') break;
+        if (session.mode !== 'subscription') break;
+        // A trial-period checkout has $0 due today, so Stripe reports
+        // payment_status as 'no_payment_required' instead of 'paid'.
+        // Both are valid, successful signups.
+        if (session.payment_status !== 'paid' && session.payment_status !== 'no_payment_required') break;
 
         const email = session.customer_details?.email || session.customer_email;
         const customerId = session.customer;
@@ -63,13 +67,15 @@ export default async function handler(req, res) {
 
         if (!email) break;
 
+        const subscriptionStatus = session.payment_status === 'no_payment_required' ? 'trialing' : 'active';
+
         await supa.from('paid_customers').upsert(
           {
             email,
             plan,
             stripe_customer_id: customerId,
             stripe_subscription_id: subscriptionId,
-            subscription_status: 'active',
+            subscription_status: subscriptionStatus,
             last_session_id: session.id,
           },
           { onConflict: 'email' }
@@ -80,7 +86,7 @@ export default async function handler(req, res) {
         await supa
           .from('profiles')
           .update({
-            subscription_status: 'active',
+            subscription_status: subscriptionStatus,
             stripe_subscription_id: subscriptionId,
             plano: plan || undefined,
           })
